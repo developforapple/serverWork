@@ -22,6 +22,19 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#define kLogFilePath "/Users/Documents/GidHub/serverWork/serverWork/files/updateLog_v4.txt"
+//#define kLogFilePath "/root/openressty/nginx/html/download/updateLog_v_3_0.txt"
+
+#define kItemFilePath "/Users/Documents/GidHub/serverWork/serverWork/files/item_v4.txt"
+//#define kItemFilePath "/root/openressty/nginx/html/download/item_v_3_0.txt"
+
+#define kItemZipFilePath "/Users/Documents/GidHub/serverWork/serverWork/files/item_v4.zip"
+//#define kItemZipFilePath "/root/openressty/nginx/html/download/item_v_3_0.zip"
+
+#define kItemUpdateTimeFilePath "/Users/Documents/GidHub/serverWork/serverWork/files/updateTime_v4.txt"
+//#define kItemUpdateTimeFilePath "/root/openressty/nginx/html/updateTime/updatetime_v_3_0.txt"
+
+
 using namespace std;
 
 size_t writer(void* buffer, size_t size, size_t nmemb, void* lpVoid);
@@ -36,25 +49,23 @@ int aCount = 0;
 
 int main()
 {
-    const char *url = "http://cdn.dota2.com/apps/570/scripts/items/items_game.855dcf274b57a3f547cd360bff166ef38e5218cf.txt";
-    string urlStr("");
     while(1)
     {
-        string schemaUrlText;
+        std::string schemaUrlText;
         if(down_file(schemaUrlText)){
             cout<<schemaUrlText<<endl;
             
             Json::Reader reader;
             Json::Value value;
         
-            if(reader.parse(schemaUrlText, value,true))
+            if(reader.parse(schemaUrlText, value))
             {
-                if(!value["result"].isNull())
+                const Json::Value result = value["result"];
+                if(!result.isNull())
                 {
-                    urlStr = value["result"]["items_game_url"].asString();
-                    
-                    cout<<urlStr<<endl;string content;
-                    downloadWillBegin(urlStr.c_str(),content);
+                    std::string items_game_url = result["items_game_url"].asString();
+                    cout<<items_game_url<<endl;string content;
+                    downloadWillBegin(items_game_url.c_str(),content);
                     sleep(60*60*5); //5小时后再次执行
                 }
             }
@@ -70,17 +81,13 @@ bool down_file(string &str)
 {
     CURL *curl = NULL;
     CURLcode code;
-    
     const char *filename = "http://api.steampowered.com/IEconItems_570/GetSchemaURL/v1/?key=CD9010FD71FA1583192F9BDB87ED8164";
-    
     curl = curl_easy_init();
-    
     curl_easy_setopt(curl, CURLOPT_URL, filename); //设置下载地址
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10);//设置超时时间
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writer);//设置写数据的函数
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&str);//设置写数据的变量
     code = curl_easy_perform(curl);//执行下载
-    
     if(CURLE_OK != code) {
         cout<<"successed"<<endl;
         return false;//判断是否下载成功
@@ -197,15 +204,6 @@ size_t writer(void* buffer, size_t size, size_t nmemb, void* lpVoid)
     return nmemb;
 }
 
-
-/*long writer(void *data, int size, int nmemb, string &content)
- {
- long sizes = size * nmemb;
- string temp(data,sizes);
- content += temp;
- return sizes;
- }*/
-
 bool GetURLDataBycurl(const char* URL,  string &content)
 {
     CURL *curl = NULL;
@@ -246,16 +244,16 @@ bool GetURLDataBycurl(const char* URL,  string &content)
         long len = content.length();
         
         printf("File time:     %ld \n",filetime);
-        printf("Resopnse code:  %d\n",retcode);
+        printf("Resopnse code:  %ld\n",retcode);
         printf("Responser len:    %f\n",length);
         printf("Download len:    %ld\n",len);
         time_t timep;
         time (&timep);
         printf("Check Update time: %s",ctime(&timep));
         
-        FILE *updateLogFile = fopen("/root/openressty/nginx/html/download/updateLog_v_3_0.txt","a");
+        FILE *updateLogFile = fopen(kLogFilePath,"a+");
         if(updateLogFile){
-            fprintf(updateLogFile,"---------------------------------------------\n%s fileTime:%ld--responseCode:%d--responseLen:%f--DownloadLen:%ld\n\n",ctime(&timep),filetime,retcode,length,len);
+            fprintf(updateLogFile,"%s fileTime:%ld--responseCode:%ld--responseLen:%f--DownloadLen:%ld\n\n",ctime(&timep),filetime,retcode,length,len);
             fclose(updateLogFile);
         }
         
@@ -263,7 +261,7 @@ bool GetURLDataBycurl(const char* URL,  string &content)
         {
             printf("prepare save item.txt");
             
-            FILE * file = fopen("/root/openressty/nginx/html/download/item_v_3_0.txt","wb");
+            FILE * file = fopen(kItemFilePath,"wb");
             if (!file) {
                 perror("fopen");
                 return -1;
@@ -275,7 +273,7 @@ bool GetURLDataBycurl(const char* URL,  string &content)
             
             long zipsize = beginGZip(content,length);
             
-            file = fopen("/root/openressty/nginx/html/updateTime/updatetime_v_3_0.txt","wb");
+            file = fopen(kItemUpdateTimeFilePath,"wb");
             fseek(file,0,SEEK_SET);
             fprintf(file,"%ld-%ld",filetime,zipsize);
             fclose(file);
@@ -283,19 +281,15 @@ bool GetURLDataBycurl(const char* URL,  string &content)
             curl_easy_cleanup(curl);
             return true;
         }else {
-            printf("!!!!!!!!!!!");
+            printf("length - len != 0");
             curl_easy_cleanup(curl);
             return false;
         }
-        //struct curl_slist *list;
-        //code = curl_easy_getinfo(curl,CURLINFO_COOKIELIST,&list);
-        //curl_slist_free_all (list);
-        
     }
     else
     {
         curl_easy_cleanup(curl);
-        printf("download failed！ response code：  %d\n",retcode);
+        printf("download failed！ response code：  %ld\n",retcode);
         return false;
     }
     return false;
@@ -304,21 +298,13 @@ bool GetURLDataBycurl(const char* URL,  string &content)
 long beginGZip(string &content, long length)
 {
     const char *buf = content.c_str();
-    
     struct stat statf;
-    
     gzFile gz_file;
-    
-    char * dstf = "/root/openressty/nginx/html/download/item_v_3_0.zip";
-    
-    char * srcf = "/root/openressty/nginx/html/download/item_v_3_0.txt";
-    
+    char * dstf = kItemZipFilePath;
+    char * srcf = kItemFilePath;
     char * istart;
-    
     int ifd;
-    
     int rtn;
-    
     
     if (stat(srcf, &statf) != 0)
         
